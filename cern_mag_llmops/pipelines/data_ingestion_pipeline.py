@@ -2,11 +2,12 @@
 Data ingestion pipeline for downloading CERN Courier PDFs
 """
 
-import os
-import logging
 import argparse
-from cern_mag_llmops.data_ingestion.pdf_crawler import CERNPDFCrawler
+import logging
+import os
+
 from cern_mag_llmops.config import settings
+from cern_mag_llmops.data_ingestion.pdf_crawler import CERNPDFCrawler
 
 # Configure logging
 logging.basicConfig(

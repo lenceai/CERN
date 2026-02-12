@@ -2,13 +2,14 @@
 Fine-tuning components for creating specialized CERN Magazine models
 """
 
-import os
 import json
 import logging
+import os
 import time
+from typing import Any, Dict, List
+
 import pandas as pd
 from openai import OpenAI
-from typing import List, Dict, Any
 
 from cern_mag_llmops.config import settings
 
@@ -48,7 +49,7 @@ class FineTuningManager:
             max_retries=settings.OPENAI_MAX_RETRIES,
         )
     
-    def generate_qa_pairs(self, chunks_df: pd.DataFrame, num_pairs: int = 100) -> List[Dict[str, str]]:
+    def generate_qa_pairs(self, chunks_df: pd.DataFrame, num_pairs: int = 100) -> List[Dict[str, Any]]:
         """
         Generate question-answer pairs from document chunks for fine-tuning
         
@@ -85,7 +86,10 @@ class FineTuningManager:
                     temperature=0.7
                 )
                 
-                question = response.choices[0].message.content.strip()
+                question = (response.choices[0].message.content or "").strip()
+                if not question:
+                    logger.warning(f"Skipping chunk {idx}: empty generated question")
+                    continue
                 
                 # Generate a detailed answer based on the chunk
                 answer_prompt = f"""Based only on the following content from a CERN Courier article, provide a detailed, accurate answer to the question. Only include information that is present in the provided text:
@@ -103,7 +107,10 @@ class FineTuningManager:
                     temperature=0.3
                 )
                 
-                answer = answer_response.choices[0].message.content.strip()
+                answer = (answer_response.choices[0].message.content or "").strip()
+                if not answer:
+                    logger.warning(f"Skipping chunk {idx}: empty generated answer")
+                    continue
                 
                 # Add to QA pairs
                 qa_pairs.append({

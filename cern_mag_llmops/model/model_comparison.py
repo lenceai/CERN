@@ -2,13 +2,14 @@
 Comparison between RAG and fine-tuned models
 """
 
-import os
-import logging
 import json
+import logging
+import os
 import time
-from typing import List, Dict, Any
-import pandas as pd
+from typing import Any, Dict, List
+
 import matplotlib.pyplot as plt
+import pandas as pd
 from openai import OpenAI
 
 from cern_mag_llmops.config import settings
@@ -239,7 +240,11 @@ class ModelComparison:
         
         # Bar plot of response times
         ax = plt.subplot(111)
-        bars = plt.bar(range(len(df)), df["response_time"], color=df["model"].map({"RAG": "blue", "Fine-tuned": "green"}))
+        plt.bar(
+            range(len(df)),
+            df["response_time"],
+            color=df["model"].map({"RAG": "blue", "Fine-tuned": "green"}),
+        )
         
         # Add labels
         plt.xticks(range(len(df)), df["question"], rotation=45, ha="right")

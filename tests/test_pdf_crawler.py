@@ -1,5 +1,5 @@
-from cern_mag_llmops.data_ingestion.pdf_crawler import CERNPDFCrawler
 from cern_mag_llmops.config import settings
+from cern_mag_llmops.data_ingestion.pdf_crawler import CERNPDFCrawler
 
 
 class StubCrawler(CERNPDFCrawler):

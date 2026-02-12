@@ -2,13 +2,14 @@
 PDF processor for extracting and preprocessing text from CERN Courier PDFs
 """
 
-import os
 import glob
 import logging
-from pypdf import PdfReader
+import os
 import re
-from tqdm import tqdm
+
 import pandas as pd
+from pypdf import PdfReader
+from tqdm import tqdm
 
 from cern_mag_llmops.config import settings
 

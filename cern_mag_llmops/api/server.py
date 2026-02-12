@@ -2,30 +2,30 @@
 FastAPI server for CERN Magazine LLMOps framework
 """
 
+import logging
 import os
 import time
-import logging
 from typing import Dict
 
+import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 
-from cern_mag_llmops.config import settings
-from cern_mag_llmops.model.rag_model import RAGModel
-from cern_mag_llmops.model.model_comparison import ModelComparison
+from cern_mag_llmops import __version__
 from cern_mag_llmops.api.models import (
-    QueryRequest, 
-    QueryResponse,
-    DocumentRequest,
-    DocumentResponse,
     Document,
     DocumentMetadata,
+    DocumentRequest,
+    DocumentResponse,
+    HealthResponse,
     ModelResponse,
+    QueryRequest,
+    QueryResponse,
     Source,
-    HealthResponse
 )
-from cern_mag_llmops import __version__
+from cern_mag_llmops.config import settings
+from cern_mag_llmops.model.model_comparison import ModelComparison
+from cern_mag_llmops.model.rag_model import RAGModel
 
 # Configure logging
 logging.basicConfig(

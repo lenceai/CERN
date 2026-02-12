@@ -2,15 +2,16 @@
 CERN Courier PDF crawler for downloading magazine archives
 """
 
+import logging
+import os
+import re
+import time
+from typing import Literal
+from urllib.parse import unquote, urljoin
+
 import requests
 from bs4 import BeautifulSoup
-import os
-import time
-from urllib.parse import urljoin, unquote
-import re
 from tqdm import tqdm
-import logging
-from typing import Literal
 
 from cern_mag_llmops.config import settings
 
@@ -126,7 +127,9 @@ class CERNPDFCrawler:
         courier_links = []
         
         for link in soup.find_all('a', href=True):
-            href = link['href']
+            href = link.get('href')
+            if not isinstance(href, str):
+                continue
             if '/resources/courier/' in href or '/record/' in href:
                 full_url = urljoin("https://home.cern", href)
                 if full_url not in self.processed_article_urls:
@@ -159,7 +162,9 @@ class CERNPDFCrawler:
         
         # Look for links containing PDF
         for link in soup.find_all('a', href=True):
-            href = link['href']
+            href = link.get('href')
+            if not isinstance(href, str):
+                continue
             if href.lower().endswith('.pdf'):
                 full_url = urljoin("https://home.cern", href)
                 pdf_urls.add(full_url)

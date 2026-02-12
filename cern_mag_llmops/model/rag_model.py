@@ -2,17 +2,17 @@
 RAG (Retrieval Augmented Generation) model for CERN Magazine Q&A
 """
 
-import os
 import logging
+import os
 import time
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
-from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from pydantic import SecretStr
 
 from cern_mag_llmops.config import settings
 
@@ -55,7 +55,7 @@ class RAGModel:
                 persist_directory=self.vectordb_dir,
                 embedding_function=OpenAIEmbeddings(
                     model=settings.EMBEDDING_MODEL,
-                    api_key=openai_api_key,
+                    api_key=SecretStr(openai_api_key),
                 ),
             )
             
@@ -63,7 +63,7 @@ class RAGModel:
             self.llm = ChatOpenAI(
                 model=settings.CHAT_MODEL,
                 temperature=0,
-                api_key=openai_api_key,
+                api_key=SecretStr(openai_api_key),
                 timeout=settings.OPENAI_TIMEOUT_SECONDS,
                 max_retries=settings.OPENAI_MAX_RETRIES,
             )
@@ -121,7 +121,7 @@ class RAGModel:
             answer = self.rag_chain.invoke(question)
             
             # Get retrieved documents for transparency
-            docs = self.retriever.get_relevant_documents(question)
+            docs = self.vectorstore.similarity_search(question, k=settings.TOP_K_DOCUMENTS)
             sources = [
                 {
                     "filename": doc.metadata.get("filename", "Unknown"),

@@ -2,14 +2,16 @@
 Vector database creation and management for document retrieval
 """
 
-import os
 import logging
-import pandas as pd
-from tqdm import tqdm
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain.schema.document import Document
+import os
 import time
+
+import pandas as pd
+from langchain.schema.document import Document
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+from pydantic import SecretStr
+from tqdm import tqdm
 
 from cern_mag_llmops.config import settings
 
@@ -47,7 +49,7 @@ class VectorDatabaseBuilder:
         openai_api_key = settings.require_openai_api_key()
         self.embeddings = OpenAIEmbeddings(
             model=settings.EMBEDDING_MODEL,
-            api_key=openai_api_key,
+            api_key=SecretStr(openai_api_key),
         )
     
     def load_chunks(self):
@@ -126,9 +128,13 @@ class VectorDatabaseBuilder:
                     )
                 else:
                     # Add to existing database
+                    if vectordb is None:
+                        raise RuntimeError("Vector database was not initialized")
                     vectordb.add_documents(documents=batch)
                 
                 # Persist after each batch
+                if vectordb is None:
+                    raise RuntimeError("Vector database was not initialized")
                 vectordb.persist()
                 
                 logger.info(f"Processed batch {i+1}/{len(document_batches)} with {len(batch)} documents")
@@ -190,7 +196,7 @@ class VectorDatabaseBuilder:
         )
         
         try:
-            results = retriever.get_relevant_documents(query)
+            results = retriever.invoke(query)
             
             logger.info(f"Retrieved {len(results)} documents")
             for i, doc in enumerate(results):
