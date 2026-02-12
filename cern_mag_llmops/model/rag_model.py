@@ -48,16 +48,24 @@ class RAGModel:
     def _init_components(self):
         """Initialize LLM, vector store, retriever, and prompt template"""
         try:
+            openai_api_key = settings.require_openai_api_key()
+
             # Initialize vector store
             self.vectorstore = Chroma(
                 persist_directory=self.vectordb_dir,
-                embedding_function=OpenAIEmbeddings(model=settings.EMBEDDING_MODEL)
+                embedding_function=OpenAIEmbeddings(
+                    model=settings.EMBEDDING_MODEL,
+                    api_key=openai_api_key,
+                ),
             )
             
             # Initialize LLM
             self.llm = ChatOpenAI(
                 model=settings.CHAT_MODEL,
-                temperature=0
+                temperature=0,
+                api_key=openai_api_key,
+                timeout=settings.OPENAI_TIMEOUT_SECONDS,
+                max_retries=settings.OPENAI_MAX_RETRIES,
             )
             
             # Initialize retriever
@@ -166,8 +174,8 @@ class RAGModel:
             list: List of document dictionaries
         """
         try:
-            k = k or settings.TOP_K_DOCUMENTS
-            docs = self.retriever.get_relevant_documents(query)
+            k = max(1, int(k or settings.TOP_K_DOCUMENTS))
+            docs = self.vectorstore.similarity_search(query, k=k)
             
             # Convert to dictionaries
             doc_dicts = [

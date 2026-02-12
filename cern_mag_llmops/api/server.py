@@ -4,11 +4,10 @@ FastAPI server for CERN Magazine LLMOps framework
 
 import os
 import time
-import json
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -49,10 +48,10 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.CORS_ALLOW_ORIGINS,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=settings.CORS_ALLOW_METHODS,
+    allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
 # Global model instances
@@ -84,6 +83,27 @@ def get_model_comparison() -> ModelComparison:
     return model_comparison
 
 
+def verify_api_key(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key")
+) -> None:
+    """Validate API key when API auth is enabled."""
+    if not settings.API_AUTH_ENABLED:
+        return
+
+    if not settings.API_AUTH_KEY:
+        logger.error("API_AUTH_ENABLED is true but API_AUTH_KEY is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="API authentication is misconfigured",
+        )
+
+    if x_api_key != settings.API_AUTH_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+        )
+
+
 @app.get("/", response_model=Dict[str, str])
 async def root():
     """Root endpoint"""
@@ -104,7 +124,7 @@ async def health_check():
     
     try:
         # Try to initialize RAG model
-        rag_model = get_rag_model()
+        get_rag_model()
     except Exception:
         models_available["rag"] = False
     
@@ -124,7 +144,7 @@ async def health_check():
 async def query(
     request: QueryRequest,
     rag_model: RAGModel = Depends(get_rag_model),
-    model_comparison: ModelComparison = Depends(get_model_comparison)
+    _: None = Depends(verify_api_key),
 ):
     """
     Answer a question using the specified model type
@@ -183,6 +203,7 @@ async def query(
             
         elif model_type == "fine_tuned":
             # Use fine-tuned model
+            model_comparison = get_model_comparison()
             ft_result = model_comparison.query_fine_tuned_model(request.question)
             
             # Create response
@@ -200,6 +221,7 @@ async def query(
             
         else:  # compare
             # Compare both models
+            model_comparison = get_model_comparison()
             comparison_result = model_comparison.compare_models(request.question)
             
             # Convert sources to Source objects
@@ -243,7 +265,8 @@ async def query(
 @app.post("/documents", response_model=DocumentResponse)
 async def retrieve_documents(
     request: DocumentRequest,
-    rag_model: RAGModel = Depends(get_rag_model)
+    rag_model: RAGModel = Depends(get_rag_model),
+    _: None = Depends(verify_api_key),
 ):
     """
     Retrieve relevant documents for a query

@@ -6,7 +6,7 @@ import os
 import logging
 import json
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import pandas as pd
 import matplotlib.pyplot as plt
 from openai import OpenAI
@@ -43,7 +43,11 @@ class ModelComparison:
             logger.warning("No fine-tuned model ID provided. Only RAG model will be used.")
         
         # Initialize OpenAI client for fine-tuned model
-        self.client = OpenAI()
+        self.client = OpenAI(
+            api_key=settings.require_openai_api_key(),
+            timeout=settings.OPENAI_TIMEOUT_SECONDS,
+            max_retries=settings.OPENAI_MAX_RETRIES,
+        )
         
         # Initialize RAG model
         self.rag_model = RAGModel()

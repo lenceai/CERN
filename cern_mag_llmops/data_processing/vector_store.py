@@ -6,10 +6,8 @@ import os
 import logging
 import pandas as pd
 from tqdm import tqdm
-import numpy as np
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
 import time
 
@@ -46,8 +44,10 @@ class VectorDatabaseBuilder:
         self.db_dir = db_dir or settings.VECTORDB_DIR
         
         # Create embeddings instance
+        openai_api_key = settings.require_openai_api_key()
         self.embeddings = OpenAIEmbeddings(
             model=settings.EMBEDDING_MODEL,
+            api_key=openai_api_key,
         )
     
     def load_chunks(self):

@@ -65,7 +65,7 @@ def run_data_processing(pdf_dir=None, output_dir=None, vectordb_dir=None, skip_p
         chunks_path=chunks_path,
         db_dir=vectordb_dir
     )
-    vectordb = vector_builder.build_database()
+    _ = vector_builder.build_database()
     logger.info("Vector database created successfully")
     
     # Return summary

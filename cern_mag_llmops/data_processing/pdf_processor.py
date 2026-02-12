@@ -87,7 +87,7 @@ class PDFProcessor:
         text = re.sub(r'\s+', ' ', text)
         
         # Remove special characters that don't add meaning
-        text = re.sub(r'[^\w\s.,;:!?""\''\-–—()]', ' ', text)
+        text = re.sub(r"[^\w\s.,;:!?\"'()\-\u2013\u2014]", " ", text)
         
         # Remove footer/header patterns often found in PDFs
         text = re.sub(r'(?i)page \d+ of \d+', '', text)
