@@ -2,16 +2,22 @@
 Pydantic models for API request and response validation
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class QueryRequest(BaseModel):
     """Request model for question answering"""
-    question: str = Field(..., description="The question to answer about CERN research")
-    model_type: Optional[str] = Field("rag", description="Model type to use: 'rag', 'fine_tuned', or 'compare'")
-    include_sources: Optional[bool] = Field(True, description="Whether to include source documents in the response")
-    max_sources: Optional[int] = Field(4, description="Maximum number of sources to include in the response")
+    question: str = Field(..., min_length=1, description="The question to answer about CERN research")
+    model_type: str = Field("rag", description="Model type to use: 'rag', 'fine_tuned', or 'compare'")
+    include_sources: bool = Field(True, description="Whether to include source documents in the response")
+    max_sources: int = Field(
+        4,
+        ge=1,
+        le=20,
+        description="Maximum number of sources to include in the response",
+    )
 
 
 class Source(BaseModel):
@@ -40,8 +46,8 @@ class QueryResponse(BaseModel):
 
 class DocumentRequest(BaseModel):
     """Request model for document retrieval"""
-    query: str = Field(..., description="The search query")
-    k: Optional[int] = Field(4, description="Number of documents to retrieve")
+    query: str = Field(..., min_length=1, description="The search query")
+    k: int = Field(4, ge=1, le=20, description="Number of documents to retrieve")
 
 
 class DocumentMetadata(BaseModel):

@@ -1,144 +1,68 @@
 # CERN Magazine LLMOps
 
-This project implements an LLMOps framework for processing CERN Magazine PDFs, creating a vector database for search, and deploying a RAG (Retrieval Augmented Generation) system.
+LLMOps framework for ingesting CERN Courier PDFs, chunking and indexing content,
+and serving a retrieval-augmented QA API.
 
-## Project Structure
+## Quickstart
 
-- **config**: Central configuration for paths, API keys, and parameters
-  - `settings.py`: Configuration settings for the entire framework
-  
-- **data_ingestion**: Components for crawling and downloading CERN Courier PDFs
-  - `pdf_crawler.py`: Crawler for downloading CERN Courier PDFs
-  
-- **data_processing**: Utilities for extracting text from PDFs and creating embeddings
-  - `pdf_processor.py`: Text extraction and preprocessing from PDFs
-  - `vector_store.py`: Vector database creation for document retrieval
-  
-- **model**: Model management, fine-tuning, and evaluation
-  - `rag_model.py`: RAG implementation for question answering
-  - `fine_tuning.py`: Fine-tuning capabilities for specialized models
-  - `model_comparison.py`: Comparison between RAG and fine-tuned models
-  
-- **api**: API endpoints for interacting with the RAG system
-  - `models.py`: Pydantic models for API request/response validation
-  - `server.py`: FastAPI server for interacting with the models
-  
-- **pipelines**: End-to-end pipelines for training and deployment
-  - `data_ingestion_pipeline.py`: End-to-end data ingestion workflow
-  - `data_processing_pipeline.py`: Text extraction and vector DB creation
-  - `fine_tuning_pipeline.py`: Fine-tuning workflow
-  
-- **utils**: Shared utility functions
-  - `cli.py`: Command-line interface for the framework
+1. **Install**
 
-## Getting Started
-
-1. Install the package:
-   ```
-   pip install -e .
+   ```bash
+   python3 -m pip install -e ".[dev]"
    ```
 
-2. Create a `.env` file with the required API keys:
-   ```
-   OPENAI_API_KEY=your_openai_api_key
+2. **Configure environment**
+
+   ```bash
+   cp .env.example .env
+   # then edit .env and set OPENAI_API_KEY
    ```
 
-3. Run the data ingestion pipeline:
-   ```
+3. **Run pipelines**
+
+   ```bash
+   # Download PDFs
    cern-mag-llmops ingest
-   ```
 
-4. Process data and create the vector database:
-   ```
+   # Process PDFs and build Chroma vector DB
    cern-mag-llmops process
-   ```
 
-5. Start the API server:
-   ```
+   # Start API server
    cern-mag-llmops serve
    ```
 
-## Key Features
+## API
 
-### PDF Crawling and Processing
-- Automated downloading of CERN Courier PDFs
-- Text extraction and preprocessing
-- Metadata extraction from filenames
+- `GET /health` - service and model availability
+- `POST /query` - answer a question with `rag`, `fine_tuned`, or `compare`
+- `POST /documents` - retrieve relevant chunks for a query
 
-### Vector Database Creation
-- Text chunking with overlap
-- Embedding generation using OpenAI models
-- Efficient batch processing to avoid rate limits
+Optional API key authentication is supported via:
 
-### RAG System
-- Retrieval of relevant documents for queries
-- Integration with LangChain for RAG implementation
-- Transparent sourcing of information
+- `API_AUTH_ENABLED=true`
+- `API_AUTH_KEY=...`
+- Request header: `X-API-Key`
 
-### Fine-tuning Capabilities
-- Automated generation of QA pairs from document chunks
-- Training data preparation in JSONL format
-- Fine-tuning job management and monitoring
+## Developer Commands
 
-### Model Comparison
-- Side-by-side comparison of RAG and fine-tuned models
-- Performance metrics and visualization
-- Interactive comparison mode
-
-### API for Integration
-- RESTful API with FastAPI
-- Swagger documentation
-- Health check and monitoring endpoints
-
-### Command-line Interface
-- Easy-to-use CLI for running pipelines
-- Flexible configuration options
-- End-to-end workflow support
-
-## Usage
-
-The framework can be used in several ways:
-
-### As a Python Package
-```python
-from cern_mag_llmops.model.rag_model import RAGModel
-
-rag_model = RAGModel()
-result = rag_model.answer_question("What is the Higgs boson?")
-```
-
-### Via Command-line Interface
 ```bash
-# Download PDFs
-cern-mag-llmops ingest
-
-# Process PDFs and create vector DB
-cern-mag-llmops process
-
-# Fine-tune a model
-cern-mag-llmops finetune
-
-# Start the API server
-cern-mag-llmops serve
-
-# Compare models interactively
-cern-mag-llmops compare
-
-# Run the full pipeline
-cern-mag-llmops full
+ruff check .
+mypy cern_mag_llmops
+pytest
 ```
 
-### RESTful API
-The framework provides a RESTful API that can be used to interact with the models:
+## Project Layout
 
-- `/query`: Answer questions using RAG, fine-tuned model, or both
-- `/documents`: Retrieve relevant documents for a query
-- `/health`: Check the health of the API
+- `cern_mag_llmops/config` - settings and environment handling
+- `cern_mag_llmops/data_ingestion` - CERN Courier crawler
+- `cern_mag_llmops/data_processing` - PDF extraction/chunking/vector DB builder
+- `cern_mag_llmops/model` - RAG, fine-tuning, and model comparison
+- `cern_mag_llmops/api` - FastAPI app and request/response models
+- `cern_mag_llmops/pipelines` - ingestion/processing/fine-tuning pipelines
+- `tests` - unit and API regression tests
 
-## Requirements
+## Notes
 
-See `requirements.txt` for a complete list of dependencies.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+- OpenAI credentials are validated at runtime only for features that need them.
+- CORS is environment-driven and defaults to local development origins.
+- Fine-tuning monitoring includes timeout controls to avoid infinite polling.

@@ -2,13 +2,14 @@
 Fine-tuning components for creating specialized CERN Magazine models
 """
 
-import os
 import json
 import logging
+import os
 import time
+from typing import Any, Dict, List
+
 import pandas as pd
 from openai import OpenAI
-from typing import List, Dict, Any, Optional, Tuple
 
 from cern_mag_llmops.config import settings
 
@@ -42,9 +43,13 @@ class FineTuningManager:
         os.makedirs(self.output_dir, exist_ok=True)
         
         # Initialize OpenAI client
-        self.client = OpenAI()
+        self.client = OpenAI(
+            api_key=settings.require_openai_api_key(),
+            timeout=settings.OPENAI_TIMEOUT_SECONDS,
+            max_retries=settings.OPENAI_MAX_RETRIES,
+        )
     
-    def generate_qa_pairs(self, chunks_df: pd.DataFrame, num_pairs: int = 100) -> List[Dict[str, str]]:
+    def generate_qa_pairs(self, chunks_df: pd.DataFrame, num_pairs: int = 100) -> List[Dict[str, Any]]:
         """
         Generate question-answer pairs from document chunks for fine-tuning
         
@@ -81,7 +86,10 @@ class FineTuningManager:
                     temperature=0.7
                 )
                 
-                question = response.choices[0].message.content.strip()
+                question = (response.choices[0].message.content or "").strip()
+                if not question:
+                    logger.warning(f"Skipping chunk {idx}: empty generated question")
+                    continue
                 
                 # Generate a detailed answer based on the chunk
                 answer_prompt = f"""Based only on the following content from a CERN Courier article, provide a detailed, accurate answer to the question. Only include information that is present in the provided text:
@@ -99,7 +107,10 @@ class FineTuningManager:
                     temperature=0.3
                 )
                 
-                answer = answer_response.choices[0].message.content.strip()
+                answer = (answer_response.choices[0].message.content or "").strip()
+                if not answer:
+                    logger.warning(f"Skipping chunk {idx}: empty generated answer")
+                    continue
                 
                 # Add to QA pairs
                 qa_pairs.append({
@@ -229,6 +240,10 @@ class FineTuningManager:
         """
         logger.info(f"Monitoring fine-tuning job {job_id}")
         
+        poll_interval = settings.FINE_TUNING_POLL_INTERVAL_SECONDS
+        timeout_seconds = settings.FINE_TUNING_POLL_TIMEOUT_SECONDS
+        start_time = time.time()
+
         while True:
             try:
                 job = self.client.fine_tuning.jobs.retrieve(job_id)
@@ -247,13 +262,30 @@ class FineTuningManager:
                 elif status in ["failed", "cancelled"]:
                     logger.error(f"Fine-tuning {status}: {getattr(job, 'error', 'Unknown error')}")
                     return {"status": status, "error": getattr(job, "error", "Unknown error"), "job": job}
+
+                elapsed = time.time() - start_time
+                if elapsed > timeout_seconds:
+                    logger.error(
+                        f"Fine-tuning monitoring timed out after {timeout_seconds}s for job {job_id}"
+                    )
+                    return {
+                        "status": "timeout",
+                        "error": f"Monitoring timed out after {timeout_seconds} seconds",
+                        "job": job,
+                    }
                 
                 # Wait before checking again
-                time.sleep(60)
+                time.sleep(poll_interval)
                 
             except Exception as e:
                 logger.error(f"Error monitoring fine-tuning job: {e}")
-                time.sleep(60)
+                elapsed = time.time() - start_time
+                if elapsed > timeout_seconds:
+                    return {
+                        "status": "timeout",
+                        "error": f"Monitoring timed out after {timeout_seconds} seconds",
+                    }
+                time.sleep(poll_interval)
     
     def evaluate_fine_tuned_model(self, model_id: str, test_questions: List[str]) -> Dict[str, Any]:
         """

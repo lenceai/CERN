@@ -2,14 +2,15 @@
 Data processing pipeline for extracting text from PDFs and creating vector database
 """
 
-import os
-import logging
 import argparse
+import logging
+import os
+
 import pandas as pd
 
+from cern_mag_llmops.config import settings
 from cern_mag_llmops.data_processing.pdf_processor import PDFProcessor
 from cern_mag_llmops.data_processing.vector_store import VectorDatabaseBuilder
-from cern_mag_llmops.config import settings
 
 # Configure logging
 logging.basicConfig(
@@ -65,7 +66,7 @@ def run_data_processing(pdf_dir=None, output_dir=None, vectordb_dir=None, skip_p
         chunks_path=chunks_path,
         db_dir=vectordb_dir
     )
-    vectordb = vector_builder.build_database()
+    _ = vector_builder.build_database()
     logger.info("Vector database created successfully")
     
     # Return summary

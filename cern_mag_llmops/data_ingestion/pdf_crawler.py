@@ -2,14 +2,16 @@
 CERN Courier PDF crawler for downloading magazine archives
 """
 
+import logging
+import os
+import re
+import time
+from typing import Literal
+from urllib.parse import unquote, urljoin
+
 import requests
 from bs4 import BeautifulSoup
-import os
-import time
-from urllib.parse import urljoin, unquote
-import re
 from tqdm import tqdm
-import logging
 
 from cern_mag_llmops.config import settings
 
@@ -66,10 +68,14 @@ class CERNPDFCrawler:
         Returns:
             str: HTML content of the page or None if failed
         """
-        max_retries = 3
+        max_retries = settings.CRAWL_MAX_RETRIES
         for attempt in range(max_retries):
             try:
-                response = self.session.get(url, headers=self.headers)
+                response = self.session.get(
+                    url,
+                    headers=self.headers,
+                    timeout=settings.CRAWL_REQUEST_TIMEOUT_SECONDS,
+                )
                 response.raise_for_status()
                 return response.text
             except requests.RequestException as e:
@@ -121,7 +127,9 @@ class CERNPDFCrawler:
         courier_links = []
         
         for link in soup.find_all('a', href=True):
-            href = link['href']
+            href = link.get('href')
+            if not isinstance(href, str):
+                continue
             if '/resources/courier/' in href or '/record/' in href:
                 full_url = urljoin("https://home.cern", href)
                 if full_url not in self.processed_article_urls:
@@ -154,7 +162,9 @@ class CERNPDFCrawler:
         
         # Look for links containing PDF
         for link in soup.find_all('a', href=True):
-            href = link['href']
+            href = link.get('href')
+            if not isinstance(href, str):
+                continue
             if href.lower().endswith('.pdf'):
                 full_url = urljoin("https://home.cern", href)
                 pdf_urls.add(full_url)
@@ -176,7 +186,7 @@ class CERNPDFCrawler:
         filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
         return filename
 
-    def download_pdf(self, pdf_url, filename):
+    def download_pdf(self, pdf_url, filename) -> Literal["downloaded", "skipped", "failed"]:
         """
         Download a PDF file
         
@@ -185,37 +195,47 @@ class CERNPDFCrawler:
             filename: Filename to save as
             
         Returns:
-            bool: True if successful, False otherwise
+            str: "downloaded", "skipped", or "failed"
         """
         if filename in self.downloaded_files:
             logger.info(f"Skipping {filename} - already downloaded")
-            return True
-            
-        try:
-            response = self.session.get(pdf_url, headers=self.headers, stream=True)
-            response.raise_for_status()
-            
-            file_path = os.path.join(self.download_folder, filename)
-            
-            total_size = int(response.headers.get('content-length', 0))
-            
-            with open(file_path, 'wb') as file, tqdm(
-                desc=filename,
-                total=total_size,
-                unit='iB',
-                unit_scale=True,
-                unit_divisor=1024,
-            ) as pbar:
-                for data in response.iter_content(chunk_size=1024):
-                    size = file.write(data)
-                    pbar.update(size)
-            
-            self.downloaded_files.add(filename)
-            logger.info(f"Successfully downloaded {filename}")
-            return True
-        except Exception as e:
-            logger.error(f"Error downloading {filename}: {e}")
-            return False
+            return "skipped"
+
+        max_retries = settings.CRAWL_MAX_RETRIES
+        for attempt in range(max_retries):
+            try:
+                response = self.session.get(
+                    pdf_url,
+                    headers=self.headers,
+                    stream=True,
+                    timeout=settings.CRAWL_REQUEST_TIMEOUT_SECONDS,
+                )
+                response.raise_for_status()
+
+                file_path = os.path.join(self.download_folder, filename)
+                total_size = int(response.headers.get('content-length', 0))
+
+                with open(file_path, 'wb') as file, tqdm(
+                    desc=filename,
+                    total=total_size,
+                    unit='iB',
+                    unit_scale=True,
+                    unit_divisor=1024,
+                ) as pbar:
+                    for data in response.iter_content(chunk_size=1024):
+                        size = file.write(data)
+                        pbar.update(size)
+
+                self.downloaded_files.add(filename)
+                logger.info(f"Successfully downloaded {filename}")
+                return "downloaded"
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Error downloading {filename}: {e}")
+                    return "failed"
+                time.sleep(2 ** attempt)
+
+        return "failed"
 
     def crawl_and_download(self, start_page=None, end_page=None):
         """
@@ -255,11 +275,11 @@ class CERNPDFCrawler:
                     logger.info(f"Found PDF: {filename}")
                     logger.info(f"URL: {pdf_url}")
                     
-                    if self.download_pdf(pdf_url, filename):
-                        if filename in self.downloaded_files:
-                            skipped_pdfs += 1
-                        else:
-                            downloaded_pdfs += 1
+                    download_status = self.download_pdf(pdf_url, filename)
+                    if download_status == "downloaded":
+                        downloaded_pdfs += 1
+                    elif download_status == "skipped":
+                        skipped_pdfs += 1
                     else:
                         failed_downloads.append(filename)
                 

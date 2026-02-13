@@ -2,13 +2,14 @@
 Fine-tuning pipeline for creating specialized CERN Magazine models
 """
 
-import os
-import logging
 import argparse
+import logging
+import os
+
 import pandas as pd
 
-from cern_mag_llmops.model.fine_tuning import FineTuningManager
 from cern_mag_llmops.config import settings
+from cern_mag_llmops.model.fine_tuning import FineTuningManager
 
 # Configure logging
 logging.basicConfig(

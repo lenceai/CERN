@@ -2,18 +2,17 @@
 Command-line interface for the CERN Magazine LLMOps framework
 """
 
-import os
-import sys
 import argparse
 import logging
+import os
+import sys
 from typing import List, Optional
 
 from cern_mag_llmops.config import settings
+from cern_mag_llmops.model.model_comparison import ModelComparison
 from cern_mag_llmops.pipelines.data_ingestion_pipeline import run_data_ingestion
 from cern_mag_llmops.pipelines.data_processing_pipeline import run_data_processing
 from cern_mag_llmops.pipelines.fine_tuning_pipeline import run_fine_tuning
-from cern_mag_llmops.model.model_comparison import ModelComparison
-from cern_mag_llmops.api.server import start as start_api_server
 
 # Configure logging
 logging.basicConfig(
@@ -93,7 +92,7 @@ Examples:
                              help="Run the server in debug mode")
     
     # Compare command
-    compare_parser = subparsers.add_parser("compare", help="Run the interactive model comparison")
+    subparsers.add_parser("compare", help="Run the interactive model comparison")
     
     # Full command
     full_parser = subparsers.add_parser("full", help="Run the full pipeline (ingest, process, serve)")
@@ -145,6 +144,7 @@ def main(args: Optional[List[str]] = None) -> None:
             settings.API_HOST = parsed_args.host
             settings.API_PORT = parsed_args.port
             settings.DEBUG_MODE = parsed_args.debug
+            from cern_mag_llmops.api.server import start as start_api_server
             start_api_server()
             
         elif parsed_args.command == "compare":
@@ -162,6 +162,7 @@ def main(args: Optional[List[str]] = None) -> None:
                 run_data_processing()
             
             logger.info("Starting API server")
+            from cern_mag_llmops.api.server import start as start_api_server
             start_api_server()
             
     except Exception as e:
